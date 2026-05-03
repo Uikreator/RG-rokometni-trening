@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RG Rescue</title>
+<style>
+  body { font-family: -apple-system, system-ui, sans-serif; padding: 16px; max-width: 720px; margin: 0 auto; background: #f5f5f5; }
+  h1 { color: #004c98; }
+  .box { background: white; padding: 14px; border-radius: 10px; margin-bottom: 10px; border: 1px solid #ddd; }
+  .key { font-weight: 600; color: #004c98; word-break: break-all; }
+  .info { color: #555; font-size: 13px; margin-top: 4px; }
+  .data { background: #fafafa; padding: 8px; border-radius: 6px; font-family: monospace; font-size: 11px; max-height: 120px; overflow: auto; margin-top: 8px; word-break: break-all; }
+  button { background: #004c98; color: white; border: none; padding: 12px 18px; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; margin: 6px 6px 6px 0; }
+  button.green { background: #1a7a3e; }
+  button.red { background: #c11515; }
+  .ok { color: #1a7a3e; }
+  .bad { color: #c11515; }
+  .big { font-size: 18px; font-weight: 700; }
+</style>
+</head>
+<body>
+<h1>🆘 RG Rescue</h1>
+<p>To orodje pregleda, kaj je v shranjevanju brskalnika. <strong>Pomembno: odpri to datoteko na ISTI napravi in v ISTEM brskalniku, kjer si vnašal vaje, in iz iste lokacije (GitHub Pages URL ali ista lokalna pot)!</strong></p>
+
+<div id="results"></div>
+
+<button onclick="downloadAll()" class="green">⇱ Prenesi VSE podatke (rescue.json)</button>
+<button onclick="location.reload()">⟳ Osveži</button>
+
+<script>
+const results = document.getElementById('results');
+const allKeys = Object.keys(localStorage);
+const rgKeys = allKeys.filter(k => k.startsWith('rg_') || k.startsWith('krim_'));
+
+let html = '';
+
+if (rgKeys.length === 0) {
+  html += '<div class="box"><div class="big bad">❌ V tem brskalniku NI nobenih RG podatkov.</div><div class="info">Možni razlogi:<br>• Nisi v istem brskalniku/napravi/URL kot ko si vnašal<br>• localStorage je bil pobrisan<br>• Nikoli niso bili shranjeni</div></div>';
+} else {
+  html += '<div class="box"><div class="big ok">✓ Najdenih ' + rgKeys.length + ' ključev</div></div>';
+}
+
+const allData = {};
+rgKeys.forEach(key => {
+  const raw = localStorage.getItem(key);
+  allData[key] = raw;
+  let info = '';
+  let preview = raw;
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      info = '📋 ' + parsed.length + ' elementov';
+      if (parsed.length > 0 && parsed[0].naslov) {
+        info += ' — vaje: ' + parsed.map(v => v.naslov).join(', ').slice(0, 200);
+      }
+    } else {
+      info = '📦 objekt';
+    }
+    preview = JSON.stringify(parsed, null, 2).slice(0, 500);
+  } catch(e) {
+    info = '📝 raw text (' + raw.length + ' znakov)';
+    preview = raw.slice(0, 500);
+  }
+
+  html += '<div class="box">';
+  html += '<div class="key">' + key + '</div>';
+  html += '<div class="info">' + info + ' · ' + raw.length + ' znakov</div>';
+  html += '<div class="data">' + preview.replace(/</g, '&lt;') + (raw.length > 500 ? '...' : '') + '</div>';
+  html += '</div>';
+});
+
+// Storage size
+let totalSize = 0;
+allKeys.forEach(k => totalSize += (localStorage.getItem(k) || '').length);
+html += '<div class="box"><div class="info">Skupaj v localStorage: ' + (totalSize/1024).toFixed(1) + ' KB (' + allKeys.length + ' ključev)</div></div>';
+
+results.innerHTML = html;
+
+window.downloadAll = function() {
+  const data = {
+    timestamp: new Date().toISOString(),
+    location: location.href,
+    userAgent: navigator.userAgent,
+    allLocalStorage: {}
+  };
+  Object.keys(localStorage).forEach(k => {
+    data.allLocalStorage[k] = localStorage.getItem(k);
+  });
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'rg-rescue-' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+};
+</script>
+</body>
+</html>
